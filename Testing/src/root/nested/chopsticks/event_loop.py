@@ -1,8 +1,9 @@
-'''
+"""
 Created on May 22, 2020
 
 @author: Tavis
-'''
+"""
+
 import pygame
 from pygame import Rect, Surface
 from root.nested.chopsticks.tree import generate_tree, Tree, Node
@@ -95,7 +96,7 @@ while running:
         mouse_pose = pygame.mouse.get_pos()
         background_mouse_pose = (mouse_pose[0]-background_dimensions.left, mouse_pose[1]-background_dimensions.top)
         current_scale = scale/prev_scale
-        background_dimensions.move_ip(-background_mouse_pose[0]*(current_scale-1), -background_mouse_pose[1]*(current_scale-1))
+        background_dimensions.move_ip(int(-background_mouse_pose[0]*(current_scale-1)), int(-background_mouse_pose[1]*(current_scale-1)))
         background_dimensions.size = size
         
         x = background_dimensions.width-2000

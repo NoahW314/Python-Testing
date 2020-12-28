@@ -43,4 +43,4 @@ foo = cls(0, 1, 2)
 
 old_list = [1, 1, 2, 2, 3, 4, 5]
 old_list.remove(2)
-print(old_list)
+#print(old_list)

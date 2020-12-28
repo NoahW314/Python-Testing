@@ -1,8 +1,8 @@
-'''
+"""
 Created on May 22, 2020
 
 @author: Tavis
-'''
+"""
 from pygame import Rect
 import pygame.gfxdraw
 
@@ -15,7 +15,11 @@ def generate_tree(tree, depth, turn, max_depth, env_size):
         return generate_tree(tree, depth-1, int(not turn), max_depth, env_size)
 
 
-class Node():
+def generate_circle(all_nodes, allow_stall=False):
+    return {node: node.generate_children(not node.turn, allow_stall=allow_stall) for node in all_nodes}
+
+
+class Node:
     def __init__(self, state, parent=None, turn=0, level=0):
         #State contains the state of the game, namely the number of fingers on each hand
         #This in the form [[hand11, hand12],[hand21, hand22]]
@@ -34,52 +38,63 @@ class Node():
         self.level = level
         
     @classmethod
-    def wrap(self, state):
+    def wrap(cls, state):
         new_state = [sorted(state[0], reverse=True), sorted(state[1], reverse=True)]
         for i in range(0, 2):
             for j in range(0, 2):
                 if new_state[i][j] >= 5:
                     new_state[i][j] = 0
-        return (tuple(new_state[0]), tuple(new_state[1]))
+        return tuple(new_state[0]), tuple(new_state[1])
     
-    def generate_children(self, turn, all_nodes, level):
+    def generate_children(self, turn, all_nodes=None, level=None, allow_stall=False):
         if self.is_duplicate:
             return []
         
         log = False
         
-        """Go through each hand that we could hit with and each hand that could be hit.
-        We will deal with the other combinations later"""
-        
-        """Combinations to deal with:
-            Reviving hands
-            Transferring fingers (eventually; maybe)
-        """
+        # Look at all possible move options
+
+        # We have no move options if one player is out of fingers
+        if self.state[0][0] == 0 or self.state[1][0] == 0:
+            if log:
+                print("Dead "+repr(self))
+            return []
         states = []
-        if turn:
-            if self.state[0][0] != 0:
-                states.append(((self.state[0][0]+self.state[1][0], self.state[0][1]), self.state[1]))
-                states.append(((self.state[0][0]+self.state[1][1], self.state[0][1]), self.state[1]))
+        if not turn:
+            # Hand 1's Move
+            # Normal Moves
+            states.append(((self.state[0][0]+self.state[1][0], self.state[0][1]), self.state[1]))
+            states.append(((self.state[0][0]+self.state[1][1], self.state[0][1]), self.state[1]))
             if self.state[0][1] != 0:
+                # Normal Moves
                 states.append(((self.state[0][0], self.state[0][1]+self.state[1][0]), self.state[1]))
                 states.append(((self.state[0][0], self.state[0][1]+self.state[1][1]), self.state[1]))
+            # Transferring Fingers/Reviving
+            for i in range(1, self.state[1][0] + 1):
+                states.append((self.state[0], (self.state[1][0] - i, self.state[1][1] + i)))
         else:
+            # Hand 0's Move
+            # Normal Moves
+            states.append((self.state[0], (self.state[1][0] + self.state[0][0], self.state[1][1])))
+            states.append((self.state[0], (self.state[1][0] + self.state[0][1], self.state[1][1])))
             if self.state[1][1] != 0:
+                # Normal Moves
                 states.append((self.state[0], (self.state[1][0], self.state[1][1]+self.state[0][0])))
                 states.append((self.state[0], (self.state[1][0], self.state[1][1]+self.state[0][1])))
-            if self.state[1][0] != 0:
-                states.append((self.state[0], (self.state[1][0]+self.state[0][0], self.state[1][1])))
-                states.append((self.state[0], (self.state[1][0]+self.state[0][1], self.state[1][1])))
-        #Sort the player's hands, so that the hand with the most fingers appears first
+            # Transferring Fingers/Reviving
+            for i in range(1, self.state[0][0] + 1):
+                states.append(((self.state[0][0] - i, self.state[0][1] + i), self.state[1]))
+        #Sort the players' hands, so that the hand with the most fingers appears first
         ordered_states = [Node.wrap(state) for state in states]
         if log:
             print(ordered_states)
         #Remove any state that is the same as its parent state
-        ordered_states = [state for state in ordered_states if state != self.state]
+        if not allow_stall or self.state[not turn][1] != 0:
+            ordered_states = [state for state in ordered_states if state != self.state]
         if log:
             print(ordered_states)
         #Remove duplicates
-        unique_states = tuple(set(tuple(ordered_states)))
+        unique_states = tuple(set(ordered_states))
         if log:
             print(unique_states)
         
@@ -91,15 +106,16 @@ class Node():
             if log:
                 print(node)
                 print(all_nodes)
-            if node in all_nodes[level]:
-                node.is_level_duplicate = True
-                node.is_duplicate = True
-            else:
-                for node_level in all_nodes:
-                    if node in node_level:
-                        node.is_duplicate = True
-                if not node.is_duplicate:
-                    all_nodes[level].append(node)
+            if all_nodes is not None and level is not None:
+                if node in all_nodes[level]:
+                    node.is_level_duplicate = True
+                    node.is_duplicate = True
+                else:
+                    for node_level in all_nodes:
+                        if node in node_level:
+                            node.is_duplicate = True
+                    if not node.is_duplicate:
+                        all_nodes[level].append(node)
         if log:
             print()
         
@@ -126,6 +142,14 @@ class Node():
         elif self.is_end:
             color = (0,150,0)
         return color
+
+    def winner(self):
+        if self.state[0][0] == 0:
+            return 1
+        elif self.state[1][0] == 0:
+            return 0
+        else:
+            return None
     
     def __eq__(self, other):
         if self.turn == other.turn:
@@ -135,13 +159,26 @@ class Node():
     def __hash__(self):
         state = self.state if self.turn == 0 else tuple(reversed(self.state))
         return hash(state)
+
+    def __lt__(self, other):
+        if self.turn == other.turn:
+            return self.state < other.state
+        else:
+            return self.state < tuple(reversed(other.state))
     
     def __str__(self):
-        return str(self.state[0][0])+","+str(self.state[0][1])+"  "+str(self.state[1][0])+","+str(self.state[1][1])
+        if self.turn == 0:
+            return str(self.state[0][0])+","+str(self.state[0][1])+"  "+str(self.state[1][0])+","+str(self.state[1][1])
+        else:
+            return str(self.state[1][0])+","+str(self.state[1][1])+"  "+str(self.state[0][0])+","+str(self.state[0][1])
     def __repr__(self):
-        return "Node("+str(self.state)+")"
+        # TODO: This seems to be having problems?
+        if self.turn == 0:
+            return "Node("+str(self.state)+")"
+        else:
+            return "Node("+str(tuple(reversed(self.state)))+")"
         
-class Tree():
+class Tree:
     height = 100
     node_offset = 18
     min_node_space = node_offset*2.5
