@@ -6,13 +6,13 @@ Created on May 22, 2020
 from pygame import Rect
 import pygame.gfxdraw
 
-def generate_tree(tree, depth, turn, max_depth, env_size):
+def generate_tree(tree, depth, turn, max_depth, env_size, allow_stall=False):
     if depth == 1:
         return tree
     else:
-        next_level = tree.generate_next_level(turn, max_depth-depth-1)
+        next_level = tree.generate_next_level(turn, max_depth-depth-1, allow_stall)
         tree.add(next_level, depth==2, env_size)
-        return generate_tree(tree, depth-1, int(not turn), max_depth, env_size)
+        return generate_tree(tree, depth-1, int(not turn), max_depth, env_size, allow_stall)
 
 
 def generate_circle(all_nodes, allow_stall=False):
@@ -48,7 +48,7 @@ class Node:
     
     def generate_children(self, turn, all_nodes=None, level=None, allow_stall=False):
         if self.is_duplicate:
-            return []
+            return set()
         
         log = False
         
@@ -58,7 +58,7 @@ class Node:
         if self.state[0][0] == 0 or self.state[1][0] == 0:
             if log:
                 print("Dead "+repr(self))
-            return []
+            return set()
         states = []
         if not turn:
             # Hand 1's Move
@@ -91,14 +91,16 @@ class Node:
         #Remove any state that is the same as its parent state
         if not allow_stall or self.state[not turn][1] != 0:
             ordered_states = [state for state in ordered_states if state != self.state]
+        # We don't allow a move that kills off both hands
+        ordered_states = [state for state in ordered_states if state[not turn] != (0,0)]
         if log:
             print(ordered_states)
         #Remove duplicates
-        unique_states = tuple(set(ordered_states))
+        unique_states = set(ordered_states)
         if log:
             print(unique_states)
         
-        nodes = [Node(state, self, turn, level) for state in unique_states]
+        nodes = {Node(state, self, turn, level) for state in unique_states}
         
         if log:
             print("State: "+str(self.state))
@@ -167,12 +169,13 @@ class Node:
             return self.state < tuple(reversed(other.state))
     
     def __str__(self):
+        """Nodes are displayed so that the player whose turn it is is listed first"""
         if self.turn == 0:
             return str(self.state[0][0])+","+str(self.state[0][1])+"  "+str(self.state[1][0])+","+str(self.state[1][1])
         else:
             return str(self.state[1][0])+","+str(self.state[1][1])+"  "+str(self.state[0][0])+","+str(self.state[0][1])
     def __repr__(self):
-        # TODO: This seems to be having problems?
+        """Nodes are displayed so that the player whose turn it is is listed first"""
         if self.turn == 0:
             return "Node("+str(self.state)+")"
         else:
@@ -199,11 +202,11 @@ class Tree:
             for node_list in level.values():
                 all_nodes += node_list
         return all_nodes
-    def generate_next_level(self, turn, level):
+    def generate_next_level(self, turn, level, allow_stall=False):
         current_level = self.levels[-1]
         
         self.nodes.append([])
-        new_level = {node : node.generate_children(turn, self.nodes, level) for node_list in current_level.values() for node in node_list if not node.is_level_duplicate}
+        new_level = {node : node.generate_children(turn, self.nodes, level, allow_stall) for node_list in current_level.values() for node in node_list if not node.is_level_duplicate}
         return new_level
     def add(self, new_level, last_level, env_size):
         self.levels.append(new_level)

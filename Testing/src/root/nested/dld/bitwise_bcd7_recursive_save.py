@@ -13,10 +13,6 @@ Currently, calculations for 3 gates takes around 5 seconds, and 4 gates finishes
 be our next target.  It should be noted that attempting to store the expressions from 4 gates results in a MemoryError 
 after going through ~10 trees, so this makes calculating 5 gates trickier.
 
-We could attempt to write these trees to a file, and only retrieve them when needed, but this will significantly slow 
-down the program.  The benefit of being able to use the 4 gate values might be worth the time it takes to read from a 
-file.
-
 Doing this problem in a different language like C++ might help reduce the overall time somewhat or save on
 memory.
 """
@@ -25,11 +21,36 @@ memory.
 # TODO: we now have enough results that we should start writing them to a file when we discover them.  This might help
 # save enough memory to store more intermediate calculations from the 4 gates, since we shouldn't need to keep the
 # results in an array if we write them to the file.
+# TODO: We could attempt to write these trees to a file, and only retrieve them when needed, but this will significantly slow
+# down the program.  The benefit of being able to use the 4 gate values might be worth the time it takes to read from a
+# file. However, if we name the files in a systematic and organized manner, we might be able to store intermediate calculations
+# in files and efficiently retrieve them.
 
 # TODO: we might also be able to help with the memory problem by changing the algorithm to evaluate the expressions while
 # generating them, rather than discovering them all, then evaluating them.  This would probably be slower, but by combining
 # this with the file storage plan above, it would allow the program to continue running for long periods of time without
 # worrying about running out of memory.  This memory/speed trade-off seems like it would be worth it.
+
+# General Memory-Saving Principles (MSPs):
+# (1) Encode the large data in some way that saves memory
+# (2) Organize and store the large data in a way that eliminates repeated storage of the same thing
+
+# TODO: Thought: Would storing things using a binary type in/out thing be more memory efficient?
+# E.x. represent lists of integers 0-9 as 10 bits with bit n representing if n is in the list or not.
+# E.x. 0110101110 would be the list [1, 2, 4, 6, 7, 8]
+# TODO: Perhaps storing some things as a bitarray would be efficient than their current storage?
+# E.x. represent the 22 inputs as a 5-bit bitarray or the gate type as a 2-bit bitarray
+# TODO: Another memory saving idea would be to store things in a dictionary which slowing reveals information
+# E.x. represent a list of coordinates through a nested dictionary whose first key is the x coordinate, second key is y,
+# and third key (if needed) is z. (See my AdventOfCode Day 17 solution)[This might be able to be combined with the above MSI(s)]
+"""
+E.x. 2D coordinates in nested dictionary [(0,0),(0,-2),(0,5),(1,-1),(1,3),(-1,0)]
+{
+0:[0, -2, 5]
+1:[-1, 3]
+-1:[0]
+}
+"""
 
 outputs = {
     "a": logical_function([1, 4], are_minterms=False),
