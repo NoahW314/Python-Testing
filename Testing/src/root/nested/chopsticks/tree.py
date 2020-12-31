@@ -1,10 +1,39 @@
-"""
-Created on May 22, 2020
 
-@author: Tavis
-"""
-from pygame import Rect
+from itertools import combinations
+
 import pygame.gfxdraw
+from pygame import Rect
+"""
+Winner, Max Moves
+0 is no forced winner
+UC is uncomputable
+Without Stalling
+Hands -->   1    2    3    4    5    6    7    8
+Fingers  2  1,1  1,2  1,3  1,4  1,5  1,6  1,7  1,8
+|        3  2,1  0    0    0    0    0    0    UC
+v        4  1,2  1,9  0    1,15 UC   UC   UC
+         5  1,2  2,13 0    UC
+         6  2,2  0    UC  
+         7  2,2  0    UC
+         8  2,2  0    UC
+         9  1,2  UC
+With Stalling
+Hands -->   1    2    3    4    5    6    7    8
+Fingers  2  1,1  1,2  1,3  1,4  1,5  1,6  1,7  1,8
+|        3  2,1  0    0    0    0    0    0    UC
+v        4  1,2  0    0    0    UC   UC   UC
+         5  1,2  0    0    UC
+         6  2,2  0    UC  
+         7  2,2  0    UC
+         8  2,2  0    UC
+         9  1,3  UC
+"""
+hands = 2
+fingers = 5
+
+
+# TODO: when extending the Node class for more fingers and hands, we made changes which broke compatibility with the event_loop
+# program.  We may want to make this program work again.
 
 def generate_tree(tree, depth, turn, max_depth, env_size, allow_stall=False):
     if depth == 1:
@@ -15,9 +44,8 @@ def generate_tree(tree, depth, turn, max_depth, env_size, allow_stall=False):
         return generate_tree(tree, depth-1, int(not turn), max_depth, env_size, allow_stall)
 
 
-def generate_circle(all_nodes, allow_stall=False):
-    return {node: node.generate_children(not node.turn, allow_stall=allow_stall) for node in all_nodes}
-
+def generate_circle(all_nodes, allow_stall=False, use_list=False):
+    return {node: node.generate_children(not node.turn, allow_stall=allow_stall, use_list=use_list) for node in all_nodes}
 
 class Node:
     def __init__(self, state, parent=None, turn=0, level=0):
@@ -32,8 +60,6 @@ class Node:
         self.is_duplicate = False
         #Is this node a duplicate in this level of the tree?
         self.is_level_duplicate = False
-        #Is this the end of a branch? (i.e. the game is now over)
-        self.is_end = self.state[0] == (0,0) or self.state[1] == (0,0)
         #The level of the tree this node is on
         self.level = level
         
@@ -41,12 +67,12 @@ class Node:
     def wrap(cls, state):
         new_state = [sorted(state[0], reverse=True), sorted(state[1], reverse=True)]
         for i in range(0, 2):
-            for j in range(0, 2):
-                if new_state[i][j] >= 5:
+            for j in range(0, hands):
+                if new_state[i][j] >= fingers:
                     new_state[i][j] = 0
         return tuple(new_state[0]), tuple(new_state[1])
     
-    def generate_children(self, turn, all_nodes=None, level=None, allow_stall=False):
+    def generate_children(self, turn, all_nodes=None, level=None, allow_stall=False, use_list=True):
         if self.is_duplicate:
             return set()
         
@@ -61,38 +87,61 @@ class Node:
             return set()
         states = []
         if not turn:
-            # Hand 1's Move
+            # Player 1's Move
             # Normal Moves
-            states.append(((self.state[0][0]+self.state[1][0], self.state[0][1]), self.state[1]))
-            states.append(((self.state[0][0]+self.state[1][1], self.state[0][1]), self.state[1]))
-            if self.state[0][1] != 0:
-                # Normal Moves
-                states.append(((self.state[0][0], self.state[0][1]+self.state[1][0]), self.state[1]))
-                states.append(((self.state[0][0], self.state[0][1]+self.state[1][1]), self.state[1]))
+            # i is the hand on player 1 which is "attacking"
+            for i in range(0, hands):
+                if self.state[1][i] != 0:
+                    # j is the hand on player 0 which is being "attacked"
+                    for j in range(0, hands):
+                        if self.state[0][j] != 0:
+                            mod_state = list(self.state[0])
+                            mod_state[j] += self.state[1][i]
+                            states.append((tuple(mod_state), self.state[1]))
             # Transferring Fingers/Reviving
-            for i in range(1, self.state[1][0] + 1):
-                states.append((self.state[0], (self.state[1][0] - i, self.state[1][1] + i)))
+            # get all possible two-hand combinations
+            perms = combinations(range(0, hands), 2)
+            for perm in perms:
+                # take fingers from perm[0] and put them on perm[1]
+                for i in range(1, self.state[1][perm[0]] + 1):
+                    mod_state = list(self.state[1])
+                    mod_state[perm[0]] -= i
+                    mod_state[perm[1]] += i
+                    states.append((self.state[0], tuple(mod_state)))
         else:
-            # Hand 0's Move
+            # PLayer 0's Move
             # Normal Moves
-            states.append((self.state[0], (self.state[1][0] + self.state[0][0], self.state[1][1])))
-            states.append((self.state[0], (self.state[1][0] + self.state[0][1], self.state[1][1])))
-            if self.state[1][1] != 0:
-                # Normal Moves
-                states.append((self.state[0], (self.state[1][0], self.state[1][1]+self.state[0][0])))
-                states.append((self.state[0], (self.state[1][0], self.state[1][1]+self.state[0][1])))
+            # i is the hand on player 0 which is "attacking"
+            for i in range(0, hands):
+                if self.state[0][i] != 0:
+                    # j is the hand on player 1 which is being "attacked"
+                    for j in range(0, hands):
+                        if self.state[1][j] != 0:
+                            mod_state = list(self.state[1])
+                            mod_state[j] += self.state[0][i]
+                            states.append((self.state[0], tuple(mod_state)))
             # Transferring Fingers/Reviving
-            for i in range(1, self.state[0][0] + 1):
-                states.append(((self.state[0][0] - i, self.state[0][1] + i), self.state[1]))
+            # get all possible two-hand combinations
+            perms = combinations(range(0, hands), 2)
+            for perm in perms:
+                # take fingers from perm[0] and put them on perm[1]
+                for i in range(1, self.state[0][perm[0]] + 1):
+                    mod_state = list(self.state[0])
+                    mod_state[perm[0]] -= i
+                    mod_state[perm[1]] += i
+                    states.append((tuple(mod_state), self.state[1]))
         #Sort the players' hands, so that the hand with the most fingers appears first
         ordered_states = [Node.wrap(state) for state in states]
         if log:
             print(ordered_states)
-        #Remove any state that is the same as its parent state
-        if not allow_stall or self.state[not turn][1] != 0:
+        # Remove any state that is the same as its parent state
+        # TODO: we changed this because we could not determine the function of the second, if we rediscover it we should
+        # WRITE it down, so we don't forget again
+        # if not (allow_stall and self.state[not turn][1] == 0):
+        if not allow_stall:
             ordered_states = [state for state in ordered_states if state != self.state]
-        # We don't allow a move that kills off both hands
-        ordered_states = [state for state in ordered_states if state[not turn] != (0,0)]
+        # We don't allow a move that kills off all hands
+        ordered_states = [state for state in ordered_states if state[not turn] != (0,)*hands]
         if log:
             print(ordered_states)
         #Remove duplicates
@@ -104,24 +153,27 @@ class Node:
         
         if log:
             print("State: "+str(self.state))
-        for node in nodes:
-            if log:
-                print(node)
-                print(all_nodes)
-            if all_nodes is not None and level is not None:
-                if node in all_nodes[level]:
-                    node.is_level_duplicate = True
-                    node.is_duplicate = True
-                else:
-                    for node_level in all_nodes:
-                        if node in node_level:
-                            node.is_duplicate = True
-                    if not node.is_duplicate:
-                        all_nodes[level].append(node)
+        # for node in nodes:
+        #     if log:
+        #         print(node)
+        #         print(all_nodes)
+        #     if all_nodes is not None and level is not None:
+        #         if node in all_nodes[level]:
+        #             node.is_level_duplicate = True
+        #             node.is_duplicate = True
+        #         else:
+        #             for node_level in all_nodes:
+        #                 if node in node_level:
+        #                     node.is_duplicate = True
+        #             if not node.is_duplicate:
+        #                 all_nodes[level].append(node)
         if log:
             print()
-        
-        return nodes
+
+        if use_list:
+            return list(nodes)
+        else:
+            return nodes
     
     def get_color(self):
         """Node Color Guide
@@ -135,13 +187,13 @@ class Node:
         color = (0,0,0)
         if self.is_level_duplicate:
             color = (0,0,255)
-            if self.is_end:
+            if self.winner() is not None:
                 color = (0,200,255)
         elif self.is_duplicate:
             color = (255,0,0)
-            if self.is_end:
+            if self.winner() is not None:
                 color = (255,200,0)
-        elif self.is_end:
+        elif self.winner() is not None:
             color = (0,150,0)
         return color
 
@@ -171,15 +223,32 @@ class Node:
     def __str__(self):
         """Nodes are displayed so that the player whose turn it is is listed first"""
         if self.turn == 0:
-            return str(self.state[0][0])+","+str(self.state[0][1])+"  "+str(self.state[1][0])+","+str(self.state[1][1])
+            string = ""
+            for i in range(0, 2):
+                for j in range(0, hands):
+                    string += str(self.state[i][j])+","
+                string = string[:-1]
+                string += " "
+            string = string[:-1]
+            return string
         else:
-            return str(self.state[1][0])+","+str(self.state[1][1])+"  "+str(self.state[0][0])+","+str(self.state[0][1])
+            string = ""
+            for i in range(1, -1, -1):
+                for j in range(0, hands):
+                    string += str(self.state[i][j]) + ","
+                string = string[:-1]
+                string += " "
+            string = string[:-1]
+            return string
     def __repr__(self):
         """Nodes are displayed so that the player whose turn it is is listed first"""
         if self.turn == 0:
             return "Node("+str(self.state)+")"
         else:
             return "Node("+str(tuple(reversed(self.state)))+")"
+
+start_node = Node(((1,)*hands, (1,)*hands))
+
         
 class Tree:
     height = 100
