@@ -339,6 +339,7 @@ def generate_all_expressions(tree):
                 expr += tree.gate[0] + r_inputs[i]
             expr += ")"
             try_append(expressions, expr)
+    # TODO: Look into returning a generator instead.  This may or may not help save on memory.
     return expressions
 
 

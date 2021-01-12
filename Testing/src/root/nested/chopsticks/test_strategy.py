@@ -9,8 +9,8 @@ from itertools import product
 from random import randrange, seed
 from timeit import default_timer as time
 
-from root.nested.chopsticks.analysis import find_trap_nodes, hands, fingers, allow_stall
-from root.nested.chopsticks.tree import Node, generate_circle, start_node
+from root.nested.chopsticks.analysis import find_trap_nodes, allow_stall
+from root.nested.chopsticks.tree import Node, generate_circle, start_node, hands, fingers
 
 
 def random_strategy(moves):

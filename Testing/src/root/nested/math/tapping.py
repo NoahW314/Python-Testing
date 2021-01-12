@@ -1,5 +1,6 @@
-from itertools import combinations
-from math import floor
+import itertools
+from itertools import combinations, product, permutations
+from math import floor, factorial
 
 
 def generate_primes(max_num):
@@ -118,6 +119,22 @@ def evaluate_prediction(factors, prediction):
     elif prediction[1] == "v":
         return side1 <= side2 or side3 <= side4
 
+def eval_simple_sub_predict(factors, prediction):
+    sides = []
+    for i in range(0, 4, 2):
+        prod1 = factors[int(prediction[i])] if int(prediction[i]) != 6 else 1
+        prod2 = factors[int(prediction[i+1])] if int(prediction[i+1]) != 6 else 1
+        sides.append(prod1*prod2)
+    return sides[0] <= sides[1]
+
+def evaluate_simple_prediction(factors, prediction, indices):
+    sides = [True, True]
+    for i in range(0, 2):
+        for prediction_part in prediction[i]:
+            sides[i] &= eval_simple_sub_predict(factors, prediction_part)
+            if not sides[i]:
+                break
+    return (sides[0] and (2 in indices)), sides[1]
 
 def test_predictions_implies(factors, indices):
     global implies_three_lt1, three_lt1_implies
@@ -138,54 +155,85 @@ def test_predictions(factors, indices):
     global equivalent_to_3lt1
     remove = set()
     for prediction in equivalent_to_3lt1:
-        if evaluate_prediction(factors, prediction) != 2 in indices:
+        if evaluate_prediction(factors, prediction) != (2 in indices):
             remove.add(prediction)
     equivalent_to_3lt1 -= remove
 
-
+wrong_count = 0
 def test_all_predictions(prediction):
-    global filtered_primes, almost_primes_and_factors
+    global filtered_primes, almost_primes_and_factors, wrong_count
+    has_true = False
     for almost_prime in filtered_primes:
         indexes = find_lowest_sum(almost_primes_and_factors[almost_prime],
                                   [lambda p, q, r, s, t, u: p * u + q * t + r * s,
                                    lambda p, q, r, s, t, u: p + q * s + r * t * u])
-        if evaluate_prediction(almost_primes_and_factors[almost_prime], prediction) != 2 in indexes:
+        # if evaluate_prediction(almost_primes_and_factors[almost_prime], prediction) != 2 in indexes:
+        evaluation = evaluate_simple_prediction(almost_primes_and_factors[almost_prime], prediction, indexes)
+        if evaluation[0]:
+            has_true = True
+        if evaluation[0] != evaluation[1]:
             return False
-    return True
+    # This ensures that no prediction whose sides are always false is reported as accurate
+    # Note that this could cause a false negative if not enough values are tested for a true value to come from the side
+    wrong_count += 1
+    return has_true
 
 
-def generate_and_test_predictions():
+def less_than_expressions():
+    perms = set()
+    for i in range(0, 6):
+        for j in range(i+1, 7):
+            for k in range(0, j):
+                for l in range(k+1, 7):
+                    if i != k and j != l:
+                        if not (i < k and j < l):
+                            if not (i > k and j > l):
+                                perms.add((i,j,k,l))
+    # rs >= p >= rt
+    # ru >= q >= tu >= s
+    # Remove things we know are true by the above filters we applied to the almost primes
+    # (There are more that we could add, involving things that p,q is less than)
+    removal = {(0,6,2,3),(2,4,0,6),(2,5,0,6),(3,4,0,6),(3,5,0,6),(4,5,0,6),
+              (1,6,2,5),(1,6,2,4),(1,6,2,3),(4,5,1,6),(3,6,4,5),
+               (0,6,1,2),(0,6,1,3)}
+    perms -= removal
+    perms -= {(remove[2],remove[3],remove[0],remove[1]) for remove in removal}
+    return perms
+
+def generate_and_test_predictions(n1, n2):
     conjunction_predictions = set()
     predictions = set()
-    operations = ["+", "-"]
-    operators = ["^", "v"]
-    terms = [0]
-    sides = []
-    perms = list(combinations(range(0, 6), 2))
+    perms = less_than_expressions()
     for perm in perms:
-        terms.append(str(perm[0]) + str(perm[1]))
-    for term1 in terms:
-        for term2 in terms:
-            for operation in operations:
-                sides.append((term1, operation, term2))
+        predictions.add(str(perm[0]) + str(perm[1]) + str(perm[2]) + str(perm[3]))
 
-    for side1 in sides:
-        for side2 in sides:
-            predictions.add((side1, (side2[0],)))
     count = 0
     print("Starting prediction and generation...")
-    print(len(predictions))
-    for predict1 in predictions:
-        for predict2 in predictions:
-            for operator in operators:
-                if test_all_predictions((predict1, operator, predict2)):
-                    conjunction_predictions.add((predict1, operator, predict2))
-                count += 1
-                if (count % 1_000_000) == 0:
-                    print(count)
-                    if len(conjunction_predictions) > 0:
-                        print(len(conjunction_predictions))
-                        print_sample(conjunction_predictions)
+    num_pred = len(predictions)
+    print(num_pred)
+    print((factorial(num_pred)**2)/(factorial(n1)*factorial(n2)*factorial(num_pred-n1)*factorial(num_pred-n2)))
+    # for element in predictions:
+    #     string = ""
+    #     for k in range(0, 4, 2):
+    #         string += factor_names[int(element[k])]
+    #         string += factor_names[int(element[k + 1])]
+    #         string += " <= "
+    #     string = string[:-4]
+    #     print(string, end="   ")
+    #     print(element)
+
+    for prediction1 in combinations(predictions, n1):
+        for prediction2 in combinations(predictions, n2):
+            if not set(prediction1).isdisjoint(set(prediction2)):
+                continue
+            if test_all_predictions((prediction1, prediction2)):
+                conjunction_predictions.add((*prediction1, *prediction2))
+            count += 1
+            if (count % 1_000_000) == 0:
+                print(count)
+                if len(conjunction_predictions) > 0:
+                    print(len(conjunction_predictions))
+                    print_sample(conjunction_predictions)
     print(count)
     return conjunction_predictions
 
@@ -206,7 +254,7 @@ def generate_and_test_predictions():
 almost_primes_and_factors = generate_almost_primes(10**5, 6)
 # six_almost_primes = sorted(list(almost_primes_and_factors.keys()))
 filtered_primes = filter_primes(almost_primes_and_factors)
-factor_names = ["p", "q", "r", "s", "t", "u"]
+factor_names = ["p", "q", "r", "s", "t", "u", ""]
 ap_by_factors = {name:{} for name in factor_names}
 # for almost_prime in filtered_primes:
 #     indexes = find_lowest_sum(almost_primes_and_factors[almost_prime], [lambda p, q, r, s, t, u: p * u + q * t + r * s,
@@ -240,7 +288,18 @@ ap_by_factors = {name:{} for name in factor_names}
 #     #         ap_by_factors[factor_names[i]][tuple(factors[:i]+factors[i+1:])] = [
 #     #             str(almost_primes_and_factors[almost_prime]) + ": " + str(almost_prime) + ", " + str(indexes)]
 
-equivalent_to_3lt1 = generate_and_test_predictions()
+"""(Target, Match)
+Match -->    0  1  2  3  4  5  6  7
+Target    0  0  0  0  0  0  0  0  0
+|         1  0  0  0  0
+v         2  0  0  0
+          3  0  0  
+          4  0
+"""
+
+match = 0
+target = 5
+equivalent_to_3lt1 = generate_and_test_predictions(target, match)
 
 print()
 # print(len(implies_three_lt1))
@@ -248,16 +307,29 @@ print()
 # intersection = implies_three_lt1 & three_lt1_implies
 # print(len(intersection))
 print(len(equivalent_to_3lt1))
+print(wrong_count)
 
 # Print sample
 def print_sample(sets):
     copy_set = sets.copy()
-    for i in range(0, min(len(copy_set), 10)):
+    for i in range(0, min(len(copy_set), 100)):
         element = copy_set.pop()
-        str1 = factor_names[int(element[0][0][0])]+"*"+factor_names[int(element[0][0][1])] if isinstance(element[0][0], str) else str(0)
-        str2 = factor_names[int(element[0][2][0])]+"*"+factor_names[int(element[0][2][1])] if isinstance(element[0][2], str) else str(0)
-        str3 = factor_names[int(element[1][0][0])]+"*"+factor_names[int(element[1][0][1])] if isinstance(element[1][0], str) else str(0)
-        print(str1+element[0][1]+str2+" <= "+str3)
+        str1 = ""
+        str2 = ""
+        for j in range(target+match):
+            string = ""
+            for k in range(0, 4, 2):
+                string += factor_names[int(element[j][k])]
+                string += factor_names[int(element[j][k+1])]
+                string += " <= "
+            string = string[:-4]
+            if j < target:
+                str1 += string+" ^ "
+            else:
+                str2 += string+" ^ "
+        str1 = str1[:-3]
+        str2 = str2[:-3]
+        print("3 <= 1 ^ "+str1+" <=> "+str2)
 
 print()
 print_sample(equivalent_to_3lt1)
