@@ -198,7 +198,10 @@ class Node:
                         mod_state[perm[0]] = i
                         mod_state[perm[1]] = limit-i
                         if mod_state[perm[1]] >= fingers:
-                            mod_state[perm[1]] = mod_state[perm[1]]-fingers
+                            if carry_over:
+                                mod_state[perm[1]] = mod_state[perm[1]]-fingers
+                            else:
+                                mod_state[perm[1]] = 0
                         mod_state.sort(reverse=True)
                         states.add((parent_state[1], tuple(mod_state)))
         # Sort the players' hands, so that the hand with the most fingers appears first
