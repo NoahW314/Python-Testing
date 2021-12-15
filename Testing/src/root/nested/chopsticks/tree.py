@@ -7,6 +7,7 @@ from timeit import default_timer as time
 # from pygame import Rect
 
 # TODO: Redo the without stalling chart using the new depth metric
+# Almost done, I did all except those with 4 fingers and hands > 12
 """
 Winner, Max Moves (by the winner)
 0 is no forced winner
@@ -17,15 +18,15 @@ PP stands for Provable Pattern (i.e. there a simple pattern that I could easily 
 TTn stands for Test To n (i.e. We have tested it up to n and the pattern holds for those)
 Without Stalling
 Hands -->   1    2    3    4    5    6    7    8    9    10   11   12   13   14   15   16   17   18   19    20
-Fingers  2  1,1  1,2  1,3  1,4  1,5  1,6  1,7  1,8  1,9  1,10 1,11 PP
-|        3  2,1  0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    TT27
-v        4  1,2  1,9  0    1,15 1,18 1,22 1,26 1,30 1,33 1,37 1,41 1,44 1,49 1,53 1,57 1    1    1    1    
-         5  1,2  2,14 0    0    0    0    0    0    0
-         6  2,2  0    0    0    0    0    0    UCM
-         7  2,2  0    0    0    0    UCM
-         8  2,2  0    0    0    0    
-         9  1,3  0    0    0    UCM
-         10 1,3  0    0    0
+Fingers  2  1,1  1,3  1,5  1,7  1,7  1,9  1,9  1,11 1,11 1,13 1,13 PP
+|        3  2,2  0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    TT27
+v        4  1,3  1,11 0    1,21 1,21 1,21 1,25 1,31 1,27 1,33 1,35 1,44 1,49 1,53 1,57 1    1    1    1    
+         5  1,3  2,16 0    0    0    0    0    0    0
+         6  2,4  0    0    0    0    0    0    UCM
+         7  2,4  0    0    0    0    UCM
+         8  2,4  0    0    0    0    
+         9  1,5  0    0    0    UCM
+         10 1,5  0    0    0
          11 PP   0    0
 """
 """Without stalling, with carry-over
@@ -52,7 +53,7 @@ v        4  1,2  0    0    0    UC   UC   UC
 """
 # More hands increases the time of the first part (discovering nodes) faster
 # Gives more move options per state
-hands = 9
+hands = 2
 # More fingers increases the time of the second part (sorting the nodes) faster
 # Gives more states and deeper graphs
 fingers = 4

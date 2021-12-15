@@ -1,8 +1,3 @@
-"""
-Created on Aug 5, 2020
-
-@author: Tavis
-"""
 from root.nested.risk.war_result import WarResult
 from tabulate import tabulate
 
@@ -87,7 +82,7 @@ print(tabulate(values, headers=d_headers))"""
 
 # for i in range(0, 1000):
 #     print(str(i) + " " + str(probabilities_of_winning(i, i)))
-print(probabilities_of_winning(15, 15))
+#print(probabilities_of_winning(15, 15))
 
 
 

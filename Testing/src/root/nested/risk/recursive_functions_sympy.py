@@ -69,7 +69,7 @@ def risk_closed_simple(n, x, c=0, d=0):
         # print(str(n) + " " + str(x) + ": " + str(closed))
         print(recurs - closed == 0)"""
 
-
+# TODO: This could be calculated much faster if done iteratively and recorded results for each combination of n,x, and switches
 def risk_recursion(n, x, upper_d=0, upper_e=0, switched=(False, False)):
     d_0 = upper_d if n % 2 == upper_d % 2 else upper_d - 1
     d_1 = upper_d - 1 if n % 2 == upper_d % 2 else upper_d
@@ -222,7 +222,7 @@ def test_risk_no_recursion(last_n, last_x, exact=False):
     for n in range(min_n, last_n+1):
         for x in range(min_x, last_x+1):
             recurs = risk_recursion(n, x, 3, 2)
-            closed = risk_recursion(n, x, 3, 2)
+            closed = risk_no_recursion(n, x, 3, 2)
 
             same = (simplify(recurs - closed) == 0)
             print(str(same) + " " + str(n) + " " + str(x))

@@ -74,7 +74,7 @@ The 10 nodes which are neither parent nor trap nodes (unclassified nodes) all ha
 # end_time = time()
 # print(end_time - start_time)
 # print()
-#
+
 # start_time = time()
 # linked_list = generate_circle(all_nodes, allow_stall)
 # end_time = time()
@@ -116,11 +116,15 @@ def list_nodes_non_recursive(starting_node, nodes, end_nodes, parent_nodes):
                     children, is_end_node = Node.generate_children(child)
                     # If this is the parent of an end node, then we no longer care about anything else
                     if is_end_node:
-                        nodes.add(children)
-                        end_nodes.add(children)
+                        linked_list[child] = children.copy()
+                        end_node_child = children.pop()
+                        nodes.add(end_node_child)
+                        end_nodes.add(end_node_child)
                         parent_nodes.add(child)
+
+                        linked_list[end_node_child] = set()
                         continue
-                    linked_list[child] = children
+                    linked_list[child] = children.copy()
                     children_to_investigate.append(level_children)
                     level_children = children-nodes
             if len(children_to_investigate) > len_max:
@@ -139,15 +143,15 @@ def list_nodes_non_recursive(starting_node, nodes, end_nodes, parent_nodes):
         print(len(nodes))
         raise e
 
-    print(len(nodes))  #
-    print(len(end_nodes))  #
-    print(len(parent_nodes))  #
-    print()
-    print(len(linked_list))  #
-    print(len([child for children1 in linked_list.values() for child in children1]))  #
-    print()
-    print(len_max) #
-    print()
+    # print(len(nodes))  #
+    # print(len(end_nodes))  #
+    # print(len(parent_nodes))  #
+    # print()
+    # print(len(linked_list))  #
+    # print(len([child for children1 in linked_list.values() for child in children1]))  #
+    # print()
+    # print(len_max) #
+    # print()
 
     # print(total_time)
     # print(get_tt1()) # 0.059
@@ -540,8 +544,9 @@ def classify_nodes(starting_node, log=0):
     # We control parent -> trap
     # They control trap -> parent
     possible_nodes = set()
-    # list_nodes_non_recursive(starting_node, possible_nodes)
-    end_nodes = {node for node in possible_nodes if node.winner() is not None}
+    end_nodes = set()
+    list_nodes_non_recursive(starting_node, possible_nodes, end_nodes, set())
+    # end_nodes = {node for node in possible_nodes if node.winner() is not None}
     total_parent_nodes = set()
     total_trap_nodes = end_nodes.copy()
     prev_trap_nodes = end_nodes.copy()
@@ -600,11 +605,24 @@ def classify_nodes(starting_node, log=0):
 
     return total_trap_nodes, total_parent_nodes, unclassified_nodes
 
-# trap_nodes, parent_nodes, unclassified = classify_nodes(start_node, log=1)
+trap_nodes, parent_nodes, unclassified = classify_nodes(start_node, log=1)
+list_linked_list = sorted([(key, value) for key, value in linked_list.items()])
+for child_parent_tuple in list_linked_list:
+    if child_parent_tuple[0] in trap_nodes:
+        print("Trap", end=" ")
+    if child_parent_tuple[0] in parent_nodes:
+        print("Parent", end=" ")
+    if child_parent_tuple[0] in unclassified:
+        print("Other", end=" ")
+    print(str(child_parent_tuple[0][0])+", "+str(child_parent_tuple[0][1])+":  ",end="")
+    for child in child_parent_tuple[1]:
+        print(child, end=", ")
+    print()
+
 
 # find_trap_nodes(start_node, log=1)
 
-list_nodes_and_sort(start_node)
+# list_nodes_and_sort(start_node)
 
 # print()
 # node_children_classification = {}
